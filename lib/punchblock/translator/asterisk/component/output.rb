@@ -55,16 +55,15 @@ module Punchblock
                 @call.execute_agi_command 'EXEC Playback', opts
                 if @call.channel_var('PLAYBACKSTATUS') == 'FAILED'
                   raise PlaybackError unless rendering_engine.to_sym == :native_or_unimrcp
-                  render_with_unimrcp doc.value
+                  render_with_unimrcp doc
                 end
               end
             when :unimrcp
-              assert_single_document
               @call.send_progress if early
               send_ref
-              render_with_unimrcp
+              render_with_unimrcp(*render_docs)
             when :swift
-              assert_single_document
+              raise OptionError, 'Only a single document is supported.' unless @component_node.render_documents.size == 1
               @call.send_progress if early
               send_ref
               @call.execute_agi_command 'EXEC Swift', swift_doc
@@ -92,12 +91,8 @@ module Punchblock
             filenames
           end
 
-          def assert_single_document
-            raise OptionError, 'Only a single document is supported.' unless @component_node.render_documents.size == 1
-          end
-
           def filenames
-            @filenames ||= @component_node.render_documents.map do |doc|
+            @filenames ||= render_docs.map do |doc|
               [doc, doc.value.children.map do |node|
                 case node
                 when RubySpeech::SSML::Audio
@@ -114,13 +109,13 @@ module Punchblock
             raise UnrenderableDocError, 'The provided document could not be rendered. See http://adhearsion.com/docs/common_problems#unrenderable-document-error for details.'
           end
 
-          def render_with_unimrcp(doc = render_doc)
-            UniMRCPApp.new('MRCPSynth', doc, mrcpsynth_options).execute @call
+          def render_with_unimrcp(*docs)
+            UniMRCPApp.new('MRCPSynth', *docs.map { |doc| doc.value.to_s }.join(','), mrcpsynth_options).execute @call
             raise UniMRCPError if @call.channel_var('SYNTHSTATUS') == 'ERROR'
           end
 
-          def render_doc
-            @component_node.render_documents.first.value
+          def render_docs
+            @component_node.render_documents
           end
 
           def mrcpsynth_options
@@ -131,7 +126,7 @@ module Punchblock
           end
 
           def swift_doc
-            doc = render_doc.to_s.squish.gsub(/["\\]/) { |m| "\\#{m}" }
+            doc = render_docs.first.value.to_s.squish.gsub(/["\\]/) { |m| "\\#{m}" }
             doc << "|1|1" if [:any, :dtmf].include? @component_node.interrupt_on
             doc.insert 0, "#{@component_node.voice}^" if @component_node.voice
             doc

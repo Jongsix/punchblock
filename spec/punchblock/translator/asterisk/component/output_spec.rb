@@ -174,6 +174,25 @@ module Punchblock
                 end
 
               end
+
+              describe "with multiple documents" do
+                let :first_ssml_doc do
+                  RubySpeech::SSML.draw do
+                    audio :src => audio_filename
+                  end
+                end
+                let :second_ssml_doc do
+                  RubySpeech::SSML.draw do
+                    say_as(:interpret_as => :cardinal) { 'FOO' }
+                  end
+                end
+                let(:command_opts) { { render_documents: [{value: first_ssml_doc}, {value: second_ssml_doc}] } }
+
+                it "executes Swift with a concatenated version of the documents" do
+                  mock_call.should_receive(:execute_agi_command).once.with 'EXEC Swift', ssml_with_options
+                  subject.execute
+                end
+              end
             end
 
             context 'with a renderer of :unimrcp' do

@@ -63,7 +63,6 @@ module Punchblock
               send_ref
               render_with_unimrcp(*render_docs)
             when :swift
-              raise OptionError, 'Only a single document is supported.' unless @component_node.render_documents.size == 1
               @call.send_progress if early
               send_ref
               @call.execute_agi_command 'EXEC Swift', swift_doc
@@ -118,6 +117,12 @@ module Punchblock
             @component_node.render_documents
           end
 
+          def concatenated_render_doc
+            render_docs.inject RubySpeech::SSML.draw do |doc, argument|
+              doc + argument.value
+            end
+          end
+
           def mrcpsynth_options
             {}.tap do |opts|
               opts[:i] = 'any' if [:any, :dtmf].include? @component_node.interrupt_on
@@ -126,7 +131,7 @@ module Punchblock
           end
 
           def swift_doc
-            doc = render_docs.first.value.to_s.squish.gsub(/["\\]/) { |m| "\\#{m}" }
+            doc = concatenated_render_doc.to_s.squish.gsub(/["\\]/) { |m| "\\#{m}" }
             doc << "|1|1" if [:any, :dtmf].include? @component_node.interrupt_on
             doc.insert 0, "#{@component_node.voice}^" if @component_node.voice
             doc

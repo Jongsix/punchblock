@@ -52,7 +52,7 @@ module Punchblock
 
       def setup_dtmf_recognizer
         @recognizer = DTMFRecognizer.new self,
-                        input_node.grammars.first.value,
+                        input_node.grammars.first,
                         (input_node.initial_timeout || -1),
                         (input_node.inter_digit_timeout || -1),
                         input_node.terminator
